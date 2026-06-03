@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    
+    <!-- Pre-conexão seletiva (Reduzido para evitar sobrecarga) -->
+    <link rel="preconnect" href="https://app.sorteclub.com" crossorigin>
+    <link rel="dns-prefetch" href="https://app.sorteclub.com">
+
+    <!-- Preload da imagem crítica (LCP) -->
+    <link rel="preload" as="image" href="/Assets/splashscreen.webp" type="image/webp">
+
+    <!-- Speculation Rules API para prerender da aplicação principal -->
+    <script type="speculationrules">
+    {
+      "prerender": [{
+        "source": "list",
+        "urls": ["https://app.sorteclub.com/pr/xpBkJtSK"]
+      }]
+    }
+    </script>
+
+    <title>77X BRASIL | Apostas Online e Jogo do Bicho Seguro</title>
+    <meta name="description" content="Aposte na 77x Brasil: 30% de Bônus de Boas-Vindas, +15% diários e 20% em dias de Federal. Jogo do Bicho, Cassino e muito mais com total segurança e praticidade.">
+    <meta name="keywords" content="77x Brasil, Banca, Apostas, plataforma, Cassino, Jogo do Bicho, Tigrinho, Bingo, Fazendinha, Loteria, Raspadinha, banca 77x, cadastro 77x brasil, Jogos de aposta">
+    <meta name="robots" content="index, follow, max-image-preview:large">
+    <meta name="author" content="77x Brasil">
+    <link rel="canonical" href="https://www.77xbrasil.app.br/">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:locale" content="pt_BR">
+    <meta property="og:site_name" content="77X BRASIL">
+    <meta property="og:url" content="https://www.77xbrasil.app.br/">
+    <meta property="og:title" content="77X BRASIL | Apostas Online e Jogo do Bicho">
+    <meta property="og:description" content="30% de Bônus de Boas-Vindas e prêmios incríveis. A sorte na palma da sua mão com a 77x Brasil.">
+    <meta property="og:image" content="https://www.77xbrasil.app.br/Assets/og-image.jpg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="77X BRASIL | Apostas Online">
+    <meta name="twitter:description" content="Bônus exclusivos e segurança nas suas apostas. Cadastre-se na 77x Brasil!">
+    <meta name="twitter:image" content="https://www.77xbrasil.app.br/Assets/og-image.jpg">
+
+    <!-- Favicons e Manifest PWA -->
+    <link rel="icon" href="/Assets/favicon.ico" sizes="any">
+    <link rel="icon" href="/Assets/favicon-16x16.webp" type="image/webp" sizes="16x16">
+    <link rel="icon" href="/Assets/favicon-32x32.webp" type="image/webp" sizes="32x32">
+    <link rel="icon" href="/Assets/favicon-192x192.webp" type="image/webp" sizes="192x192">
+    <link rel="icon" href="/Assets/favicon-512.webp" type="image/webp" sizes="512x512">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#121212">
+    
+    <!-- iOS Support -->
+    <link rel="apple-touch-icon" href="/Assets/icon-192x192.webp">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="77X BRASIL">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <!-- Dados Estruturados (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "77X BRASIL",
+      "url": "https://www.77xbrasil.app.br/",
+      "description": "Plataforma de apostas online e Jogo do Bicho com bônus exclusivos.",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "All",
+      "publisher": {
+        "@type": "Organization",
+        "name": "77X BRASIL",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://www.77xbrasil.app.br/Assets/favicon-512.webp"
+        }
+      },
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "BRL"
+      }
+    }
+    </script>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* CSS Otimizado - Apenas o necessário para o primeiro carregamento */
+        :root {
+            --bg-color: #000;
+            --text-color: #222222;
+            --primary-color: #002b1b;
+            --primary-hover: #001a10;
+            --secondary-color: #00d176;
+            --secondary-hover: #00c06a;
+            --splash-bg: #00bb6a;
+        }
+
+        * { box-sizing: border-box; }
+
+        html, body {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            overflow: hidden; background-color: var(--bg-color);
+            font-family: system-ui, -apple-system, sans-serif;
+            -webkit-text-size-adjust: 100%;
+            content-visibility: auto;
+        }
+
+        #splash-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: var(--splash-bg);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 9999; opacity: 1;
+            transition: opacity 0.4s ease-out, visibility 0.4s ease-out;
+        }
+
+        #splash-screen.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+
+        .splash-icon {
+            width: 120px; height: 120px;
+            will-change: transform, opacity;
+            animation: fadeInScale 0.6s ease-out forwards;
+        }
+
+        @keyframes fadeInScale {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        #iframe-container { width: 100%; height: 100%; opacity: 0; transition: opacity 0.4s ease; }
+        #iframe-container.visible { opacity: 1; }
+
+        iframe {
+            width: 100%; height: 100%; border: none; display: block;
+            background-color: var(--bg-color); color-scheme: dark;
+        }
+
+        .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border-width: 0; }
+    </style>
+</head>
+<body>
+
+    <article class="sr-only">
+        <h1>77X BRASIL - Apostas Online e Jogo do Bicho</h1>
+        <p>Aposte na 77x Brasil com 30% de Bônus. Jogo do Bicho e Cassino seguro.</p>
+    </article>
+
+    <div id="splash-screen">
+        <!-- Atribuindo fetchpriority alta para a imagem de splash (LCP) -->
+        <img src="/Assets/splashscreen.webp" alt="77X Brasil" class="splash-icon" fetchpriority="high">
+    </div>
+
+    <main id="iframe-container">
+        <iframe 
+            id="main-iframe"
+            title="Plataforma de Apostas 77x Brasil"
+            allow="clipboard-read; clipboard-write; camera; microphone; geolocation; display-capture; fullscreen"
+            allowfullscreen>
+        </iframe>
+            <div id="manus-palpites-component" data-payload='{}'></div>
+    </main>
+    <script>
+        // Otimização de carregamento: Adia scripts não essenciais
+        const splashScreen = document.getElementById('splash-screen');
+        const iframeContainer = document.getElementById('iframe-container');
+        const mainIframe = document.getElementById('main-iframe');
+        const targetUrl = "https://app.sorteclub.com/pr/xpBkJtSK";
+
+        let splashHidden = false;
+        function hideSplash() {
+            if (!splashHidden) {
+                splashHidden = true;
+                splashScreen.classList.add('hidden');
+                iframeContainer.classList.add('visible');
+            }
+        }
+
+        // Carregamento assíncrono do iframe
+        window.addEventListener('load', () => {
+            // Prioridade para o Service Worker
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/sw.js').catch(() => {});
+            }
+            
+            // Carrega iframe após o carregamento da página principal
+            setTimeout(() => {
+                mainIframe.src = targetUrl;
+            }, 100);
+        });
+
+        mainIframe.addEventListener('load', hideSplash);
+        
+        // Fallback mais agressivo para UX
+        setTimeout(hideSplash, 2500);
+    </script>
+    <script src="script.js"></script>
+</body>
+</html>

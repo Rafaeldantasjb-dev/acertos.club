@@ -1,0 +1,22 @@
+{
+  "name": "77X BRASIL",
+  "short_name": "77X BRASIL",
+  "description": "77x Brasil, com 30% de Bônus de Boas Vindas, + 15% de Bônus Todos os Dias e 20% em dia de Federal. Aposte no Jogo do Bicho com segurança e praticidade. Cadastre-se já e tenha a sorte na palma da sua mão! Faça parte do nosso time e descubra a emoção deganhar prêmios incríveis.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#121212",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/Assets/icon-192x192.webp",
+      "sizes": "192x192",
+      "type": "image/webp"
+    },
+    {
+      "src": "/Assets/icon-512x512.webp",
+      "sizes": "512x512",
+      "type": "image/webp"
+    }
+  ]
+}
