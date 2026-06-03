@@ -1,0 +1,57 @@
+name: Atualizar Timestamp do Sitemap
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - '**.html'
+  workflow_dispatch: # ATIVAÇÃO MANUAL: Permite rodar o script por um botão no GitHub
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-sitemap:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checar código do repositório
+      uses: actions/checkout@v4
+
+    - name: Atualizar data no sitemap.xml
+      run: |
+        python3 -c "
+        import re, datetime
+        today = datetime.date.today().strftime('%Y-%m-%d')
+        try:
+            with open('sitemap.xml', 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            if '<lastmod>' not in content:
+                print('Erro: A tag <lastmod> não foi encontrada no sitemap.xml')
+                exit(1)
+
+            updated_content = re.sub(r'<lastmod>.*?</lastmod>', f'<lastmod>' + today + '</lastmod>', content)
+            
+            with open('sitemap.xml', 'w', encoding='utf-8') as f:
+                f.write(updated_content)
+            print(f'Sitemap atualizado com a data de hoje: {today}')
+        except Exception as e:
+            print(f'Erro ao processar o sitemap.xml: {e}')
+            exit(1)
+        "
+
+    - name: Commit e Push do Sitemap atualizado
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        
+        if git diff --quiet sitemap.xml; then
+          echo "O sitemap já estava atualizado com a data de hoje."
+        else
+          git add sitemap.xml
+          git commit -m "chore: atualizar lastmod no sitemap.xml [skip ci]"
+          git push
+        fi
