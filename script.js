@@ -1,6 +1,6 @@
 /* manus-script.js */
 window.addEventListener('load', function() {
-  const component = document.getElementById('manus-palpites-component');
+  const component = document.getElementById('palpites-component');
   if (!component) return;
 
   if (!document.getElementById('manus-fab')) {

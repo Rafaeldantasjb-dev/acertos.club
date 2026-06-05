@@ -1,19 +1,20 @@
 // Nome e versão do cache. Altere a versão (ex: v2) quando atualizar seus arquivos locais.
-const CACHE_NAME = '77x-brasil-cache-v1';
+const CACHE_NAME = 'Banca-Brasileira-cache-v1';
 
 // Arquivos locais que compõem a "casca" do aplicativo (App Shell)
 const ASSETS_TO_CACHE = [
     '/',
     '/index.html',
     '/manifest.json',
-    '/Assets/icon-192x192.png',
-    '/Assets/icon-512x512.png',
+    '/Assets/android-chrome-192x192.webp',
+    '/Assets/android-chrome-512x512.webp',
+    '/Assets/apple-touch-icon.webp',
     '/Assets/favicon-16x16.webp',
-    '/Assets/favicon-192x192.webp',
     '/Assets/favicon-32x32.webp',
-    '/Assets/favicon-512.png',
     '/Assets/favicon.ico',
-    '/Assets/og-image'
+    '/Assets/og-image.jpg',
+    '/style.css',
+    '/script.js'
 ];
 
 // 1. INSTALAÇÃO (Cache dos arquivos estáticos)
