@@ -4,8 +4,8 @@
   "description": "Cadastre-se na Banca ACERTOS.CLUB e aposte na Tradicional do Jogo do Bicho e na Fazendinha, com 30% de Bônus, aposte nos Slots de Cassino mais populares do Brasil, Bingo online, raspadinha, Super 15, Seninha, Quininha e outras loterias.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#121212",
+  "background_color": "#F3670F",
+  "theme_color": "#F3670F",
   "orientation": "portrait",
   "icons": [
     {
