@@ -1,5 +1,5 @@
 // Nome e versão do cache. Altere a versão (ex: v2) quando atualizar seus arquivos locais.
-const CACHE_NAME = 'Banca-Brasileira-cache-v1';
+const CACHE_NAME = 'acertosclub-cache-v1';
 
 // Arquivos locais que compõem a "casca" do aplicativo (App Shell)
 const ASSETS_TO_CACHE = [
