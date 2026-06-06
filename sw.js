@@ -1,11 +1,7 @@
-// Nome e versão do cache. Altere a versão (ex: v2) quando atualizar seus arquivos locais.
-const CACHE_NAME = 'acertosclub-cache-v1';
+// Nome e versão do cache.
+const CACHE_NAME = 'cache-v2-dynamic';
 
-// Arquivos locais que compõem a "casca" do aplicativo (App Shell)
 const ASSETS_TO_CACHE = [
-    '/',
-    '/index.html',
-    '/manifest.json',
     '/Assets/android-chrome-192x192.webp',
     '/Assets/android-chrome-512x512.webp',
     '/Assets/apple-touch-icon.webp',
@@ -17,58 +13,49 @@ const ASSETS_TO_CACHE = [
     '/script.js'
 ];
 
-// 1. INSTALAÇÃO (Cache dos arquivos estáticos)
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME)
-            .then((cache) => {
-                console.log('[Service Worker] Fazendo cache do App Shell');
-                return cache.addAll(ASSETS_TO_CACHE);
-            })
-            .then(() => {
-                // Força o SW a se tornar ativo imediatamente
-                return self.skipWaiting();
-            })
+            .then((cache) => cache.addAll(ASSETS_TO_CACHE))
+            .then(() => self.skipWaiting())
     );
 });
 
-// 2. ATIVAÇÃO (Limpeza de caches antigos)
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys().then((cacheNames) => {
             return Promise.all(
                 cacheNames.map((cacheName) => {
                     if (cacheName !== CACHE_NAME) {
-                        console.log('[Service Worker] Limpando cache antigo:', cacheName);
                         return caches.delete(cacheName);
                     }
                 })
             );
         })
     );
-    // Garante que o SW controle os clientes imediatamente após ativado
-    self.clients.claim();
+    return self.clients.claim();
 });
 
-// 3. INTERCEPTAÇÃO DE REQUISIÇÕES (Estratégia: Network First com fallback para Cache)
 self.addEventListener('fetch', (event) => {
-    // Ignora requisições de outras origens (como o iframe do sorteclub)
-    if (!event.request.url.startsWith(self.location.origin)) {
+    const url = new URL(event.request.url);
+    if (event.request.mode === 'navigate' || (url.origin === self.location.origin && (url.pathname === '/' || url.pathname === '/index.html'))) {
+        event.respondWith(
+            fetch(event.request)
+                .then((response) => {
+                    return caches.open(CACHE_NAME).then((cache) => {
+                        cache.put(event.request, response.clone());
+                        return response;
+                    });
+                })
+                .catch(() => caches.match(event.request))
+        );
         return;
     }
-
-    event.respondWith(
-        fetch(event.request)
-            .then((networkResponse) => {
-                // Se a rede funcionar, atualiza o cache e retorna a resposta
-                return caches.open(CACHE_NAME).then((cache) => {
-                    cache.put(event.request, networkResponse.clone());
-                    return networkResponse;
-                });
-            })
-            .catch(() => {
-                // Se a rede falhar (offline), busca no cache
-                return caches.match(event.request);
-            })
-    );
+    if (ASSETS_TO_CACHE.some(asset => event.request.url.includes(asset))) {
+        event.respondWith(
+            caches.match(event.request).then((response) => response || fetch(event.request))
+        );
+        return;
+    }
+    event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
 });
