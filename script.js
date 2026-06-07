@@ -64,6 +64,7 @@ window.addEventListener('load', function() {
   let bancas = [];
   let currentLoteria = null;
   let viewMode = 'milhar';
+  let modalState = 'closed'; // closed, main, loteria, acertos
 
   function loadData() {
     try {
@@ -75,6 +76,46 @@ window.addEventListener('load', function() {
       console.error("Erro ao carregar dados:", e);
     }
   }
+
+  // --- History API Navigation Logic ---
+  
+  function updateState(newState, push = true) {
+    modalState = newState;
+    if (push) {
+      history.pushState({ manusState: newState }, "");
+    }
+  }
+
+  window.addEventListener('popstate', function(event) {
+    if (event.state && event.state.manusState) {
+      const targetState = event.state.manusState;
+      handleNavigation(targetState, false);
+    } else {
+      // Se não houver estado, fecha o modal (comportamento de voltar na home)
+      if (modalState !== 'closed') {
+        closeModal(false);
+      }
+    }
+  });
+
+  function handleNavigation(target, push = true) {
+    switch(target) {
+      case 'main':
+        renderMain(push);
+        break;
+      case 'loteria':
+        renderLoteria(null, push);
+        break;
+      case 'acertos':
+        renderAcertos(push);
+        break;
+      case 'closed':
+        closeModal(push);
+        break;
+    }
+  }
+
+  // --- End of History API Logic ---
 
   let isDragging = false;
   let offset = { x: 0, y: 0 };
@@ -114,7 +155,6 @@ window.addEventListener('load', function() {
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
-    // Verifica se já está instalado
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
     if (!isStandalone) {
       showPWABanner();
@@ -152,9 +192,8 @@ window.addEventListener('load', function() {
 
   function openModal() {
     loadData();
-    renderMain();
+    renderMain(true);
     
-    // Oculta o banner PWA se ele estiver ativo
     if (pwaBannerActive) {
       pwaBanner.style.display = 'none';
     }
@@ -163,13 +202,20 @@ window.addEventListener('load', function() {
     document.body.style.overflow = 'hidden'; 
   }
 
-  function closeModal() {
+  function closeModal(push = true) {
     overlay.style.display = 'none';
     document.body.style.overflow = ''; 
     
-    // Reexibe o banner PWA se ele estava ativo antes de abrir o modal
     if (pwaBannerActive) {
       pwaBanner.style.display = 'flex';
+    }
+
+    modalState = 'closed';
+    if (push) {
+      // Se fechou manualmente, removemos os estados do histórico para não precisar clicar "voltar" várias vezes
+      if (history.state && history.state.manusState) {
+        history.back();
+      }
     }
   }
 
@@ -178,9 +224,10 @@ window.addEventListener('load', function() {
     if (dist < 10) openModal();
   });
 
-  overlay.addEventListener('click', (e) => { if(e.target === overlay) closeModal(); });
+  overlay.addEventListener('click', (e) => { if(e.target === overlay) window.closeManusModal(); });
 
-  function renderMain() {
+  function renderMain(push = true) {
+    updateState('main', push);
     let html = `
       <div class="manus-modal-header">
         <strong>Palpite por Loteria</strong>
@@ -218,8 +265,9 @@ window.addEventListener('load', function() {
     modalBody.innerHTML = html;
   }
 
-  window.renderLoteria = function(id) {
+  window.renderLoteria = function(id, push = true) {
     if (id) currentLoteria = { ...data[id], id: id };
+    updateState('loteria', push);
     const p = currentLoteria;
     let html = `
       <div class="manus-modal-header">
@@ -257,7 +305,7 @@ window.addEventListener('load', function() {
     modalBody.innerHTML = html;
   }
 
-  window.setMode = function(m) { viewMode = m; window.renderLoteria(); }
+  window.setMode = function(m) { viewMode = m; window.renderLoteria(null, false); }
 
   function getFilteredPalpites() {
     if (!currentLoteria || !currentLoteria.palpites) return [];
@@ -306,11 +354,13 @@ window.addEventListener('load', function() {
     overlay.style.display = 'none';
   }
 
-  window.renderAcertos = function() {
+  window.renderAcertos = function(push = true) {
+    updateState('acertos', push);
     let html = `
       <div class="manus-modal-header">
         <span class="manus-btn-back" onclick="window.renderLoteria()">&lsaquo; Voltar</span>
         <strong>Histórico e Auditoria</strong>
+        <span onclick="window.closeManusModal()" style="cursor:pointer; font-size:24px">&times;</span>
       </div>
       <div class="manus-modal-content">`;
     
@@ -340,14 +390,12 @@ window.addEventListener('load', function() {
             </div>`;
         }
         
-        /* Modificado: Lógica para colorir Milhar/Centena de preto ou manter cinza normal */
         if (ext.frases.length > 0) {
           let frasesFormatadas = ext.frases.map(frase => {
-            // Verifica se a frase tem a palavra 'Milhar' ou 'Centena'
             if (frase.includes('Milhar') || frase.includes('Centena')) {
               return `<div style="color: #000000; font-weight: bold; margin-bottom: 3px;">${frase}</div>`;
             } else {
-              return `<div style="color: #475569; font-weight: normal; margin-bottom: 3px;">${frase}</div>`; // cinza escuro, texto normal
+              return `<div style="color: #475569; font-weight: normal; margin-bottom: 3px;">${frase}</div>`;
             }
           }).join('');
           
@@ -364,5 +412,5 @@ window.addEventListener('load', function() {
   }
 
   window.renderMain = renderMain;
-  window.closeManusModal = closeModal;
+  window.closeManusModal = function() { closeModal(true); };
 });
