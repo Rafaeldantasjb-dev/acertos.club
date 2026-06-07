@@ -64,7 +64,8 @@ window.addEventListener('load', function() {
   let bancas = [];
   let currentLoteria = null;
   let viewMode = 'milhar';
-  let modalState = 'closed'; // closed, main, loteria, acertos
+  let modalState = 'closed';
+  let selectedPalpites = new Set();
 
   function loadData() {
     try {
@@ -77,8 +78,6 @@ window.addEventListener('load', function() {
     }
   }
 
-  // --- History API Navigation Logic ---
-  
   function updateState(newState, push = true) {
     modalState = newState;
     if (push) {
@@ -88,34 +87,20 @@ window.addEventListener('load', function() {
 
   window.addEventListener('popstate', function(event) {
     if (event.state && event.state.manusState) {
-      const targetState = event.state.manusState;
-      handleNavigation(targetState, false);
-    } else {
-      // Se não houver estado, fecha o modal (comportamento de voltar na home)
-      if (modalState !== 'closed') {
-        closeModal(false);
-      }
+      handleNavigation(event.state.manusState, false);
+    } else if (modalState !== 'closed') {
+      closeModal(false);
     }
   });
 
   function handleNavigation(target, push = true) {
     switch(target) {
-      case 'main':
-        renderMain(push);
-        break;
-      case 'loteria':
-        renderLoteria(null, push);
-        break;
-      case 'acertos':
-        renderAcertos(push);
-        break;
-      case 'closed':
-        closeModal(push);
-        break;
+      case 'main': renderMain(push); break;
+      case 'loteria': renderLoteria(null, push); break;
+      case 'acertos': renderAcertos(push); break;
+      case 'closed': closeModal(push); break;
     }
   }
-
-  // --- End of History API Logic ---
 
   let isDragging = false;
   let offset = { x: 0, y: 0 };
@@ -151,53 +136,31 @@ window.addEventListener('load', function() {
   window.addEventListener('touchmove', onMove, { passive: false });
   window.addEventListener('touchend', onEnd);
 
-  // PWA Logic
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-    if (!isStandalone) {
-      showPWABanner();
-    }
+    if (!isStandalone) showPWABanner();
   });
 
-  function showPWABanner() {
-    pwaBanner.style.display = 'flex';
-    pwaBannerActive = true;
-  }
-
-  function hidePWABanner() {
-    pwaBanner.style.display = 'none';
-    pwaBannerActive = false;
-  }
+  function showPWABanner() { pwaBanner.style.display = 'flex'; pwaBannerActive = true; }
+  function hidePWABanner() { pwaBanner.style.display = 'none'; pwaBannerActive = false; }
 
   pwaInstallBtn.addEventListener('click', async () => {
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') {
-      hidePWABanner();
-    }
+    if (outcome === 'accepted') hidePWABanner();
     deferredPrompt = null;
   });
 
-  pwaLaterBtn.addEventListener('click', () => {
-    hidePWABanner();
-  });
-
-  window.addEventListener('appinstalled', () => {
-    hidePWABanner();
-    deferredPrompt = null;
-  });
+  pwaLaterBtn.addEventListener('click', hidePWABanner);
+  window.addEventListener('appinstalled', () => { hidePWABanner(); deferredPrompt = null; });
 
   function openModal() {
     loadData();
     renderMain(true);
-    
-    if (pwaBannerActive) {
-      pwaBanner.style.display = 'none';
-    }
-    
+    if (pwaBannerActive) pwaBanner.style.display = 'none';
     overlay.style.display = 'flex';
     document.body.style.overflow = 'hidden'; 
   }
@@ -205,18 +168,9 @@ window.addEventListener('load', function() {
   function closeModal(push = true) {
     overlay.style.display = 'none';
     document.body.style.overflow = ''; 
-    
-    if (pwaBannerActive) {
-      pwaBanner.style.display = 'flex';
-    }
-
+    if (pwaBannerActive) pwaBanner.style.display = 'flex';
     modalState = 'closed';
-    if (push) {
-      // Se fechou manualmente, removemos os estados do histórico para não precisar clicar "voltar" várias vezes
-      if (history.state && history.state.manusState) {
-        history.back();
-      }
-    }
+    if (push && history.state && history.state.manusState) history.back();
   }
 
   fab.addEventListener('click', (e) => {
@@ -266,9 +220,14 @@ window.addEventListener('load', function() {
   }
 
   window.renderLoteria = function(id, push = true) {
-    if (id) currentLoteria = { ...data[id], id: id };
+    if (id) {
+      currentLoteria = { ...data[id], id: id };
+      selectedPalpites.clear(); // Limpa seleção ao mudar de loteria
+    }
     updateState('loteria', push);
     const p = currentLoteria;
+    const allPalpites = getFilteredPalpites();
+    
     let html = `
       <div class="manus-modal-header">
         <span class="manus-btn-back" onclick="window.renderMain()">&lsaquo; Voltar</span>
@@ -283,17 +242,22 @@ window.addEventListener('load', function() {
         </div>
         <div class="manus-palpites-grid">`;
     
-    const filteredPalpites = getFilteredPalpites();
-    if (filteredPalpites.length > 0) {
-      filteredPalpites.forEach(palp => {
-        html += `<div class="manus-palpite-card">${palp}</div>`;
+    if (allPalpites.length > 0) {
+      allPalpites.forEach(palp => {
+        const isSelected = selectedPalpites.has(palp);
+        html += `<div class="manus-palpite-card ${isSelected?'selected':''}" onclick="window.togglePalpite('${palp}')">${palp}</div>`;
       });
     } else {
       html += `<div style="grid-column: span 2; text-align: center; color: #999; padding: 20px;">Nenhum palpite disponível.</div>`;
     }
 
+    const count = selectedPalpites.size;
+    const infoText = (count === 0 || count === allPalpites.length) ? 'Copiar todos os palpites' : `${count} palpite${count>1?'s':''} selecionado${count>1?'s':''}`;
+    const btnText = (count === 0 || count === allPalpites.length) ? 'Copiar Palpites' : 'Copiar Palpites Selecionados';
+
     html += `</div>
-        <button class="manus-btn-copy" onclick="window.copyPalpites()">Copiar Palpites</button>
+        <div class="manus-selection-info" id="manus-selection-info">${infoText}</div>
+        <button class="manus-btn-copy" id="manus-btn-copy" onclick="window.copyPalpites()">${btnText}</button>
         <div class="manus-update-note">Atualize a página para ver novos palpites.</div>
         <a class="manus-refresh-link" onclick="location.reload()">&#x21bb; Atualizar página</a>
         
@@ -305,7 +269,17 @@ window.addEventListener('load', function() {
     modalBody.innerHTML = html;
   }
 
-  window.setMode = function(m) { viewMode = m; window.renderLoteria(null, false); }
+  window.togglePalpite = function(palp) {
+    if (selectedPalpites.has(palp)) selectedPalpites.delete(palp);
+    else selectedPalpites.add(palp);
+    window.renderLoteria(null, false);
+  }
+
+  window.setMode = function(m) { 
+    viewMode = m; 
+    selectedPalpites.clear(); // Limpa seleção ao mudar de modo
+    window.renderLoteria(null, false); 
+  }
 
   function getFilteredPalpites() {
     if (!currentLoteria || !currentLoteria.palpites) return [];
@@ -318,7 +292,13 @@ window.addEventListener('load', function() {
   }
 
   window.copyPalpites = function() {
-    const palpites = getFilteredPalpites();
+    let palpites;
+    if (selectedPalpites.size > 0 && selectedPalpites.size < getFilteredPalpites().length) {
+      palpites = Array.from(selectedPalpites);
+    } else {
+      palpites = getFilteredPalpites();
+    }
+
     if (palpites.length === 0) return;
     
     const text = palpites.join(', ');
@@ -338,13 +318,10 @@ window.addEventListener('load', function() {
     const overlay = document.getElementById('manus-video-overlay');
     const iframe = document.getElementById('manus-video-iframe');
     const videoId = "xq2sY4Gw5w0"; 
-    
     if (videoId && videoId !== "VIDEO_ID_AQUI") {
       iframe.src = "https://www.youtube.com/embed/" + videoId + "?autoplay=1";
       overlay.style.display = 'flex';
-    } else {
-      alert("O tutorial em vídeo estará disponível em breve!");
-    }
+    } else alert("O tutorial em vídeo estará disponível em breve!");
   }
 
   window.closeManusTutorial = function() {
@@ -374,35 +351,25 @@ window.addEventListener('load', function() {
     Object.keys(extracoes).forEach(titulo => {
       const ext = extracoes[titulo];
       if (ext.frases.length > 0 || (ext.palpitesUsados && ext.palpitesUsados.length > 0)) {
-        
         html += `<div style="margin-bottom:20px; padding:12px; background:#f9f9f9; border-radius:8px; border: 1px solid #1e3a8a;">
           <div style="font-weight:bold; color:#1e3a8a; margin-bottom:8px; border-bottom:1px solid #eee; padding-bottom:4px">${titulo}</div>`;
         
         if (ext.palpitesUsados && ext.palpitesUsados.length > 0) {
           let gridCells = ext.palpitesUsados.map(p => `<div class="manus-auditoria-cell">${p}</div>`).join('');
-          
           html += `
             <div class="manus-auditoria-box" style="margin-bottom:10px; border-left:none; padding:0; background:transparent; border: none; box-shadow: none;">
               <small style="color:#666; font-size:10px; font-weight:bold; text-transform:uppercase">Palpites usados:</small>
-              <div class="manus-auditoria-grid">
-                ${gridCells}
-              </div>
+              <div class="manus-auditoria-grid">${gridCells}</div>
             </div>`;
         }
         
         if (ext.frases.length > 0) {
           let frasesFormatadas = ext.frases.map(frase => {
-            if (frase.includes('Milhar') || frase.includes('Centena')) {
-              return `<div style="color: #000000; font-weight: bold; margin-bottom: 3px;">${frase}</div>`;
-            } else {
-              return `<div style="color: #475569; font-weight: normal; margin-bottom: 3px;">${frase}</div>`;
-            }
+            const isHighlight = frase.includes('Milhar') || frase.includes('Centena');
+            return `<div style="color: ${isHighlight?'#000000':'#475569'}; font-weight: ${isHighlight?'bold':'normal'}; margin-bottom: 3px;">${frase}</div>`;
           }).join('');
-          
           html += `<div style="font-size:13px; line-height:1.4;">${frasesFormatadas}</div>`;
-        } else {
-          html += `<div style="font-size:12px; color:#999; font-style:italic">Nenhum acerto nesta extração.</div>`;
-        }
+        } else html += `<div style="font-size:12px; color:#999; font-style:italic">Nenhum acerto nesta extração.</div>`;
         html += `</div>`;
       }
     });
