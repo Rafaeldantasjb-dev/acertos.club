@@ -282,3 +282,22 @@
 }
 
 .manus-pwa-later-btn:hover { background: rgba(255, 255, 255, 0.2); }
+
+/* Estilo para palpites selecionados */
+.manus-palpite-card.selected {
+  background: #d4af37 !important;
+  color: #0f172a !important;
+  border-color: #0f172a !important;
+  transform: scale(1.05);
+  box-shadow: 0 4px 8px rgba(212, 175, 55, 0.4);
+}
+
+.manus-selection-info {
+  font-size: 11px;
+  color: #64748b;
+  text-align: center;
+  margin-top: 15px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
