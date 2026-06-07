@@ -317,7 +317,7 @@ window.addEventListener('load', function() {
   window.openManusTutorial = function() {
     const overlay = document.getElementById('manus-video-overlay');
     const iframe = document.getElementById('manus-video-iframe');
-    const videoId = "xq2sY4Gw5w0"; 
+    const videoId = "-D5dHcV0dZM"; 
     if (videoId && videoId !== "VIDEO_ID_AQUI") {
       iframe.src = "https://www.youtube.com/embed/" + videoId + "?autoplay=1";
       overlay.style.display = 'flex';
