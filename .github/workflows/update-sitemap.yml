@@ -1,13 +1,9 @@
-name: Atualizar Timestamp do Sitemap
+name: Atualizar Timestamp do Sitemap e IndexNow
 
 on:
-  push:
-    branches:
-      - main
-      - master
-    paths:
-      - '**.html'
-  workflow_dispatch: # ATIVAÇÃO MANUAL: Permite rodar o script por um botão no GitHub
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -20,27 +16,109 @@ jobs:
     - name: Checar código do repositório
       uses: actions/checkout@v4
 
-    - name: Atualizar data no sitemap.xml
+    - name: Atualizar Sitemap e disparar IndexNow
+      env:
+        INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}
       run: |
         python3 -c "
-        import re, datetime
+        import os, datetime, json
+        import urllib.request
+        import xml.etree.ElementTree as ET
+        from urllib.parse import urlparse
+        
         today = datetime.date.today().strftime('%Y-%m-%d')
+        sitemap_path = 'sitemap.xml'
+        indexnow_key = os.environ.get('INDEXNOW_KEY')
+        
+        ns = {'sm': 'http://www.sitemaps.org/schemas/sitemap/0.9'}
+        ET.register_namespace('', 'http://www.sitemaps.org/schemas/sitemap/0.9')
+        
         try:
-            with open('sitemap.xml', 'r', encoding='utf-8') as f:
-                content = f.read()
-            
-            if '<lastmod>' not in content:
-                print('Erro: A tag <lastmod> não foi encontrada no sitemap.xml')
-                exit(1)
-
-            updated_content = re.sub(r'<lastmod>.*?</lastmod>', f'<lastmod>' + today + '</lastmod>', content)
-            
-            with open('sitemap.xml', 'w', encoding='utf-8') as f:
-                f.write(updated_content)
-            print(f'Sitemap atualizado com a data de hoje: {today}')
-        except Exception as e:
-            print(f'Erro ao processar o sitemap.xml: {e}')
+            tree = ET.parse(sitemap_path)
+            root = tree.getroot()
+        except FileNotFoundError:
+            print('Erro: o arquivo sitemap.xml não foi encontrado.')
             exit(1)
+            
+        # 1. Pegar o domínio dinamicamente
+        first_loc = root.find('.//sm:loc', ns)
+        if first_loc is None or not first_loc.text:
+            print('Erro: Nenhuma URL encontrada no sitemap para extrair o domínio.')
+            exit(1)
+            
+        parsed_url = urlparse(first_loc.text.strip())
+        domain = f'{parsed_url.scheme}://{parsed_url.netloc}'
+        host_netloc = parsed_url.netloc
+        
+        # 2. Varrer o repositório em busca de páginas HTML
+        expected_urls = set()
+        for dirpath, dirnames, filenames in os.walk('.'):
+            dirnames[:] = [d for d in dirnames if not d.startswith('.')]
+            for f in filenames:
+                if f == 'index.html':
+                    path = os.path.relpath(os.path.join(dirpath, f), '.')
+                    if path == 'index.html':
+                        expected_urls.add(domain + '/')
+                    else:
+                        folder = os.path.dirname(path).replace(os.sep, '/')
+                        expected_urls.add(f'{domain}/{folder}/')
+                        
+        # 3. Analisar o sitemap atual e forçar o timestamp
+        existing_urls = set()
+        for url_tag in root.findall('sm:url', ns):
+            loc_tag = url_tag.find('sm:loc', ns)
+            if loc_tag is not None and loc_tag.text:
+                existing_urls.add(loc_tag.text.strip())
+                
+            lastmod_tag = url_tag.find('sm:lastmod', ns)
+            if lastmod_tag is None:
+                lastmod_tag = ET.SubElement(url_tag, 'lastmod')
+            lastmod_tag.text = today
+            
+        # 4. Inserir as novas URLs no XML
+        new_urls = expected_urls - existing_urls
+        new_urls_list = list(new_urls)
+        
+        for new_url in new_urls_list:
+            url_el = ET.SubElement(root, 'url')
+            loc_el = ET.SubElement(url_el, 'loc')
+            loc_el.text = new_url
+            lastmod_el = ET.SubElement(url_el, 'lastmod')
+            lastmod_el.text = today
+            
+        if hasattr(ET, 'indent'):
+            ET.indent(tree, space='  ', level=0)
+            
+        tree.write(sitemap_path, encoding='utf-8', xml_declaration=True)
+        print(f'Sitemap atualizado! {len(new_urls_list)} nova(s) página(s) adicionada(s).')
+
+        # 5. Disparar o IndexNow se houverem páginas novas e a chave estiver configurada
+        if new_urls_list and indexnow_key:
+            print('\nIniciando envio para IndexNow...')
+            
+            payload = {
+                'host': host_netloc,
+                'key': indexnow_key,
+                'keyLocation': f'{domain}/{indexnow_key}.txt',
+                'urlList': new_urls_list
+            }
+            
+            data = json.dumps(payload).encode('utf-8')
+            req = urllib.request.Request(
+                'https://api.indexnow.org/indexnow',
+                data=data,
+                headers={'Content-Type': 'application/json; charset=utf-8'}
+            )
+            
+            try:
+                response = urllib.request.urlopen(req)
+                print(f'Sucesso! As novas URLs foram enviadas ao IndexNow. Status HTTP: {response.getcode()}')
+            except Exception as e:
+                print(f'Erro ao disparar IndexNow: {e}')
+        elif not indexnow_key:
+            print('\nAviso: IndexNow pulado porque a secret INDEXNOW_KEY não está configurada.')
+        else:
+            print('\nNenhuma página nova encontrada. IndexNow não disparado para economizar cota.')
         "
 
     - name: Commit e Push do Sitemap atualizado
@@ -49,9 +127,9 @@ jobs:
         git config --local user.name "github-actions[bot]"
         
         if git diff --quiet sitemap.xml; then
-          echo "O sitemap já estava atualizado com a data de hoje."
+          echo "Nenhuma alteração estrutural no repositório. O sitemap se manterá com os dados atuais."
         else
           git add sitemap.xml
-          git commit -m "chore: atualizar lastmod no sitemap.xml [skip ci]"
+          git commit -m "chore: atualizar sitemap e enviar pings de SEO [skip ci]"
           git push
         fi
