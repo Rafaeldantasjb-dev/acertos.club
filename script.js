@@ -1,8 +1,9 @@
-/* manus-script.js */
+/* script.js - Migrado para Firebase Realtime Database */
 window.addEventListener('load', function() {
   const component = document.getElementById('palpites-component');
   if (!component) return;
 
+  // Injetar elementos do Modal e UI se não existirem
   if (!document.getElementById('manus-fab')) {
     const fab = document.createElement('div');
     fab.id = 'manus-fab';
@@ -12,7 +13,7 @@ window.addEventListener('load', function() {
     const pwaBanner = document.createElement('div');
     pwaBanner.id = 'manus-pwa-banner';
     pwaBanner.innerHTML = `
-      <div class="manus-pwa-text">Instale nosso aplicativo para acessar os resultados e palpites mais rápido!</div>
+      <div class="manus-pwa-text">📲 Adicione nosso app na tela do seu celular!</div>
       <div class="manus-pwa-buttons">
         <button class="manus-pwa-install-btn" id="manus-pwa-install">Instalar</button>
         <button class="manus-pwa-later-btn" id="manus-pwa-later">Depois</button>
@@ -61,22 +62,42 @@ window.addEventListener('load', function() {
   let deferredPrompt;
   let pwaBannerActive = false;
   let data = {};
-  let bancas = [];
   let currentLoteria = null;
   let viewMode = 'milhar';
   let modalState = 'closed';
   let selectedPalpites = new Set();
 
-  function loadData() {
+  // --- CONFIGURAÇÃO FIREBASE ---
+  // A URL do banco é extraída do ID do projeto
+  const FIREBASE_PROJECT_ID = "telegramjb-bot";
+  const FIREBASE_URL = `https://${FIREBASE_PROJECT_ID}-default-rtdb.firebaseio.com/palpites.json`;
+
+  /**
+   * Busca dados do Firebase de forma dinâmica.
+   */
+  async function loadDataFromFirebase() {
     try {
-      const rawData = component.getAttribute('data-payload') || '{}';
-      data = JSON.parse(rawData.replace(/&#39;/g, "'"));
-      const rawBancas = component.getAttribute('data-bancas') || '[]';
-      bancas = JSON.parse(rawBancas.replace(/&#39;/g, "'"));
-    } catch(e) {
+      const response = await fetch(FIREBASE_URL);
+      if (!response.ok) throw new Error("Erro ao buscar dados do Firebase");
+      data = await response.json();
+      console.log("Dados carregados do Firebase:", data);
+      
+      // Se o modal estiver aberto em uma loteria específica, atualiza a visualização
+      if (modalState === 'loteria' && currentLoteria) {
+        window.renderLoteria(currentLoteria.id, false);
+      } else if (modalState === 'main') {
+        renderMain(false);
+      }
+    } catch (e) {
       console.error("Erro ao carregar dados:", e);
     }
   }
+
+  // Carregamento inicial
+  loadDataFromFirebase();
+
+  // Atualização periódica (opcional, a cada 1 minuto)
+  setInterval(loadDataFromFirebase, 60000);
 
   function updateState(newState, push = true) {
     modalState = newState;
@@ -86,22 +107,24 @@ window.addEventListener('load', function() {
   }
 
   window.addEventListener('popstate', function(event) {
+    if (modalState === 'closed') return;
     if (event.state && event.state.manusState) {
       handleNavigation(event.state.manusState, false);
     } else if (modalState !== 'closed') {
-      closeModal(false);
+      window.closeManusModal(false);
     }
   });
 
   function handleNavigation(target, push = true) {
     switch(target) {
       case 'main': renderMain(push); break;
-      case 'loteria': renderLoteria(null, push); break;
-      case 'acertos': renderAcertos(push); break;
-      case 'closed': closeModal(push); break;
+      case 'loteria': window.renderLoteria(null, push); break;
+      case 'acertos': window.renderAcertos(push); break;
+      case 'closed': window.closeManusModal(push); break;
     }
   }
 
+  // Lógica do FAB (Drag and Click)
   let isDragging = false;
   let offset = { x: 0, y: 0 };
   let startPos = { x: 0, y: 0 };
@@ -136,6 +159,7 @@ window.addEventListener('load', function() {
   window.addEventListener('touchmove', onMove, { passive: false });
   window.addEventListener('touchend', onEnd);
 
+  // PWA Prompt
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
@@ -157,62 +181,68 @@ window.addEventListener('load', function() {
   pwaLaterBtn.addEventListener('click', hidePWABanner);
   window.addEventListener('appinstalled', () => { hidePWABanner(); deferredPrompt = null; });
 
-  function openModal() {
-    loadData();
+  // Modal Control
+  window.openManusModal = function() {
     renderMain(true);
     if (pwaBannerActive) pwaBanner.style.display = 'none';
     overlay.style.display = 'flex';
     document.body.style.overflow = 'hidden'; 
   }
 
-  function closeModal(push = true) {
-    overlay.style.display = 'none';
-    document.body.style.overflow = ''; 
-    if (pwaBannerActive) pwaBanner.style.display = 'flex';
+  window.closeManusModal = function(push = true) {
+    const modal = document.getElementById('manus-modal-body');
+    modal.classList.add('closing');
+    overlay.classList.add('closing');
+    
+    let stepsToBack = 0;
+    if (push) {
+      if (modalState === 'main') stepsToBack = -1;
+      else if (modalState === 'loteria') stepsToBack = -2;
+      else if (modalState === 'acertos') stepsToBack = -3;
+    }
+
     modalState = 'closed';
-    if (push && history.state && history.state.manusState) history.back();
+    
+    setTimeout(() => {
+      overlay.style.display = 'none';
+      modal.classList.remove('closing');
+      overlay.classList.remove('closing');
+      document.body.style.overflow = ''; 
+      if (pwaBannerActive) pwaBanner.style.display = 'flex';
+      
+      if (push && stepsToBack !== 0) {
+        history.go(stepsToBack);
+      }
+    }, 400);
   }
 
   fab.addEventListener('click', (e) => {
     const dist = Math.sqrt(Math.pow(startPos.x - e.clientX, 2) + Math.pow(startPos.y - e.clientY, 2));
-    if (dist < 10) openModal();
+    if (dist < 10) window.openManusModal();
   });
 
   overlay.addEventListener('click', (e) => { if(e.target === overlay) window.closeManusModal(); });
 
+  // Rendering Functions
   function renderMain(push = true) {
     updateState('main', push);
     let html = `
       <div class="manus-modal-header">
         <strong>Palpite por Loteria</strong>
-        <span onclick="window.closeManusModal()" style="cursor:pointer; font-size:24px">&times;</span>
+        <span onclick="window.closeManusModal(true)" style="cursor:pointer; font-size:24px">&times;</span>
       </div>
       <div class="manus-modal-content">
         <div style="margin-bottom: 10px; font-size: 12px; color: #666; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">Selecione a Loteria</div>`;
     
-    Object.keys(data).forEach(id => {
-      html += `<div class="manus-list-item" onclick="window.renderLoteria('${id}')">
-        <span>${data[id].loterias}</span>
-        <span>&rsaquo;</span>
-      </div>`;
-    });
-
-    if (bancas.length > 0) {
-      html += `
-        <div style="margin: 20px 0 10px 0; font-size: 12px; color: #666; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">Bancas Parceiras</div>
-        <div class="manus-bancas-container">`;
-      
-      bancas.forEach(banca => {
-        html += `
-          <div class="manus-banca-card">
-            <div class="manus-banca-info">
-              <strong>${banca.id}</strong>
-              <p>${banca.descricao}</p>
-            </div>
-            <a href="${banca.link}" target="_blank" class="manus-banca-link">Entrar</a>
-          </div>`;
+    if (data && Object.keys(data).length > 0) {
+      Object.keys(data).forEach(id => {
+        html += `<div class="manus-list-item" onclick="window.renderLoteria('${id}')">
+          <span>${data[id].loterias}</span>
+          <span>&rsaquo;</span>
+        </div>`;
       });
-      html += `</div>`;
+    } else {
+      html += `<div style="text-align: center; color: #999; padding: 20px;">Carregando dados...</div>`;
     }
     
     html += '</div>';
@@ -222,7 +252,7 @@ window.addEventListener('load', function() {
   window.renderLoteria = function(id, push = true) {
     if (id) {
       currentLoteria = { ...data[id], id: id };
-      selectedPalpites.clear(); // Limpa seleção ao mudar de loteria
+      selectedPalpites.clear();
     }
     updateState('loteria', push);
     const p = currentLoteria;
@@ -230,9 +260,9 @@ window.addEventListener('load', function() {
     
     let html = `
       <div class="manus-modal-header">
-        <span class="manus-btn-back" onclick="window.renderMain()">&lsaquo; Voltar</span>
+        <span class="manus-btn-back" onclick="history.back()">&lsaquo; Voltar</span>
         <strong>${p.loterias}</strong>
-        <span onclick="window.closeManusModal()" style="cursor:pointer; font-size:24px">&times;</span>
+        <span onclick="window.closeManusModal(true)" style="cursor:pointer; font-size:24px">&times;</span>
       </div>
       <div class="manus-modal-content">
         <div class="manus-view-modes">
@@ -258,8 +288,7 @@ window.addEventListener('load', function() {
     html += `</div>
         <div class="manus-selection-info" id="manus-selection-info">${infoText}</div>
         <button class="manus-btn-copy" id="manus-btn-copy" onclick="window.copyPalpites()">${btnText}</button>
-        <div class="manus-update-note">Atualize a página para ver novos palpites.</div>
-        <a class="manus-refresh-link" onclick="location.reload()">&#x21bb; Atualizar página</a>
+        <div class="manus-update-note">Dados updated automaticamente via Firebase.</div>
         
         <div class="manus-list-item" style="margin-top:20px; border-top:1px solid #eee" onclick="window.renderAcertos()">
           <strong>Ver acertos anteriores</strong>
@@ -277,7 +306,7 @@ window.addEventListener('load', function() {
 
   window.setMode = function(m) { 
     viewMode = m; 
-    selectedPalpites.clear(); // Limpa seleção ao mudar de modo
+    selectedPalpites.clear();
     window.renderLoteria(null, false); 
   }
 
@@ -318,10 +347,10 @@ window.addEventListener('load', function() {
     const overlay = document.getElementById('manus-video-overlay');
     const iframe = document.getElementById('manus-video-iframe');
     const videoId = "-D5dHcV0dZM"; 
-    if (videoId && videoId !== "VIDEO_ID_AQUI") {
+    if (videoId) {
       iframe.src = "https://www.youtube.com/embed/" + videoId + "?autoplay=1";
       overlay.style.display = 'flex';
-    } else alert("O tutorial em vídeo estará disponível em breve!");
+    }
   }
 
   window.closeManusTutorial = function() {
@@ -335,9 +364,9 @@ window.addEventListener('load', function() {
     updateState('acertos', push);
     let html = `
       <div class="manus-modal-header">
-        <span class="manus-btn-back" onclick="window.renderLoteria()">&lsaquo; Voltar</span>
-        <strong>Histórico e Auditoria</strong>
-        <span onclick="window.closeManusModal()" style="cursor:pointer; font-size:24px">&times;</span>
+        <span class="manus-btn-back" onclick="history.back()">&lsaquo; Voltar</span>
+        <strong>Relatório dos acertos</strong>
+        <span onclick="window.closeManusModal(true)" style="cursor:pointer; font-size:24px">&times;</span>
       </div>
       <div class="manus-modal-content">`;
     
@@ -347,37 +376,34 @@ window.addEventListener('load', function() {
       </div>`;
     }
     
-    const extracoes = currentLoteria.extracoes;
+    const extracoes = currentLoteria.extracoes || {};
     Object.keys(extracoes).forEach(titulo => {
       const ext = extracoes[titulo];
-      if (ext.frases.length > 0 || (ext.palpitesUsados && ext.palpitesUsados.length > 0)) {
-        html += `<div style="margin-bottom:20px; padding:12px; background:#f9f9f9; border-radius:8px; border: 1px solid #1e3a8a;">
-          <div style="font-weight:bold; color:#1e3a8a; margin-bottom:8px; border-bottom:1px solid #eee; padding-bottom:4px">${titulo}</div>`;
-        
-        if (ext.palpitesUsados && ext.palpitesUsados.length > 0) {
-          let gridCells = ext.palpitesUsados.map(p => `<div class="manus-auditoria-cell">${p}</div>`).join('');
-          html += `
-            <div class="manus-auditoria-box" style="margin-bottom:10px; border-left:none; padding:0; background:transparent; border: none; box-shadow: none;">
-              <small style="color:#666; font-size:10px; font-weight:bold; text-transform:uppercase">Palpites usados:</small>
-              <div class="manus-auditoria-grid">${gridCells}</div>
-            </div>`;
-        }
-        
-        if (ext.frases.length > 0) {
-          let frasesFormatadas = ext.frases.map(frase => {
-            const isHighlight = frase.includes('Milhar') || frase.includes('Centena');
-            return `<div style="color: ${isHighlight?'#000000':'#475569'}; font-weight: ${isHighlight?'bold':'normal'}; margin-bottom: 3px;">${frase}</div>`;
-          }).join('');
-          html += `<div style="font-size:13px; line-height:1.4;">${frasesFormatadas}</div>`;
-        } else html += `<div style="font-size:12px; color:#999; font-style:italic">Nenhum acerto nesta extração.</div>`;
-        html += `</div>`;
+      html += `<div style="margin-bottom:20px; padding:12px; background:#f9f9f9; border-radius:8px; border: 1px solid #1e3a8a;">
+        <div style="font-weight:bold; color:#1e3a8a; margin-bottom:8px; border-bottom:1px solid #eee; padding-bottom:4px">${titulo}</div>`;
+      
+      if (ext.palpitesUsados && ext.palpitesUsados.length > 0) {
+        let gridCells = ext.palpitesUsados.map(p => `<div class="manus-auditoria-cell">${p}</div>`).join('');
+        html += `
+          <div class="manus-auditoria-box" style="margin-bottom:10px; border: none; padding:0; background:transparent;">
+            <small style="color:#666; font-size:10px; font-weight:bold; text-transform:uppercase">Palpites usados:</small>
+            <div class="manus-auditoria-grid">${gridCells}</div>
+          </div>`;
       }
+      
+      if (ext.frases && ext.frases.length > 0) {
+        let frasesHtml = ext.frases.map(frase => {
+          const isHighlight = frase.includes('Milhar') || frase.includes('Centena');
+          return `<div style="color: ${isHighlight?'#000000':'#475569'}; font-weight: ${isHighlight?'bold':'normal'}; margin-bottom:4px; font-size:13px">${frase}</div>`;
+        }).join('');
+        html += `<div>${frasesHtml}</div>`;
+      } else {
+        html += `<div style="color:#999; font-size:12px; font-style:italic">Sem acertos nesta extração.</div>`;
+      }
+      html += `</div>`;
     });
-    if (Object.keys(extracoes).length === 0) html += '<p style="text-align:center; color:#999">Nenhum dado de extração disponível.</p>';
+    
     html += '</div>';
     modalBody.innerHTML = html;
   }
-
-  window.renderMain = renderMain;
-  window.closeManusModal = function() { closeModal(true); };
 });
