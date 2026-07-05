@@ -1,4 +1,14 @@
-/* script.js - Migrado para Firebase Realtime Database */
+// Importações oficiais do Firebase (SDK Modular)
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+// Inicialização do Aplicativo Firebase
+const firebaseConfig = {
+  databaseURL: "https://telegramjb-bot-default-rtdb.firebaseio.com"
+};
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
 window.addEventListener('load', function() {
   const component = document.getElementById('palpites-component');
   if (!component) return;
@@ -67,37 +77,29 @@ window.addEventListener('load', function() {
   let modalState = 'closed';
   let selectedPalpites = new Set();
 
-  // --- CONFIGURAÇÃO FIREBASE ---
-  // A URL do banco é extraída do ID do projeto
-  const FIREBASE_PROJECT_ID = "telegramjb-bot";
-  const FIREBASE_URL = `https://${FIREBASE_PROJECT_ID}-default-rtdb.firebaseio.com/palpites.json`;
+  // --- CONFIGURAÇÃO FIREBASE (Tempo Real Otimizado) ---
+  const palpitesRef = ref(db, 'palpites');
 
-  /**
-   * Busca dados do Firebase de forma dinâmica.
-   */
-  async function loadDataFromFirebase() {
-    try {
-      const response = await fetch(FIREBASE_URL);
-      if (!response.ok) throw new Error("Erro ao buscar dados do Firebase");
-      data = await response.json();
-      console.log("Dados carregados do Firebase:", data);
+  // O onValue escuta o banco de dados. Ele roda automaticamente ao carregar a página
+  // e sempre que houver qualquer modificação no banco de dados.
+  onValue(palpitesRef, (snapshot) => {
+    if (snapshot.exists()) {
+      data = snapshot.val();
+      console.log("Dados sincronizados em tempo real:", data);
       
-      // Se o modal estiver aberto em uma loteria específica, atualiza a visualização
+      // Atualiza a interface automaticamente se o usuário estiver com o modal aberto
       if (modalState === 'loteria' && currentLoteria) {
         window.renderLoteria(currentLoteria.id, false);
       } else if (modalState === 'main') {
         renderMain(false);
       }
-    } catch (e) {
-      console.error("Erro ao carregar dados:", e);
+    } else {
+      console.log("Nenhum dado encontrado no Firebase.");
+      data = {};
     }
-  }
-
-  // Carregamento inicial
-  loadDataFromFirebase();
-
-  // Atualização periódica (opcional, a cada 1 minuto)
-  setInterval(loadDataFromFirebase, 60000);
+  }, (error) => {
+    console.error("Erro ao escutar dados do Firebase:", error);
+  });
 
   function updateState(newState, push = true) {
     modalState = newState;
@@ -144,8 +146,20 @@ window.addEventListener('load', function() {
     if (!isDragging) return;
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    fab.style.left = (clientX - offset.x) + 'px';
-    fab.style.top = (clientY - offset.y) + 'px';
+    
+    let newLeft = clientX - offset.x;
+    let newTop = clientY - offset.y;
+    
+    // Define os limites máximos permitidos com base na janela interna do navegador
+    const maxLeft = window.innerWidth - fab.offsetWidth;
+    const maxTop = window.innerHeight - fab.offsetHeight;
+    
+    // Força o valor a se manter sempre maior que 0 e menor que o limite máximo visível
+    newLeft = Math.max(0, Math.min(newLeft, maxLeft));
+    newTop = Math.max(0, Math.min(newTop, maxTop));
+    
+    fab.style.left = newLeft + 'px';
+    fab.style.top = newTop + 'px';
     fab.style.right = 'auto';
     fab.style.bottom = 'auto';
   }
@@ -288,7 +302,7 @@ window.addEventListener('load', function() {
     html += `</div>
         <div class="manus-selection-info" id="manus-selection-info">${infoText}</div>
         <button class="manus-btn-copy" id="manus-btn-copy" onclick="window.copyPalpites()">${btnText}</button>
-        <div class="manus-update-note">Dados updated automaticamente via Firebase.</div>
+        <div class="manus-update-note">Dados atualizados automaticamente via Firebase em tempo real.</div>
         
         <div class="manus-list-item" style="margin-top:20px; border-top:1px solid #eee" onclick="window.renderAcertos()">
           <strong>Ver acertos anteriores</strong>
