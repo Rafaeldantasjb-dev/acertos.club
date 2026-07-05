@@ -1,11 +1,11 @@
 /* manus-style.css - Tema Premium (Azul Profundo e Dourado) */
 
-#manus-modal-overlay, #manus-toast-container, #manus-video-overlay {
+#manus-modal-overlay, #manus-toast-container, #manus-video-overlay, #manus-pwa-banner {
   font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   box-sizing: border-box;
 }
 
-#manus-modal-overlay *, #manus-toast-container *, #manus-video-overlay * {
+#manus-modal-overlay *, #manus-toast-container *, #manus-video-overlay *, #manus-pwa-banner * {
   box-sizing: inherit;
 }
 
